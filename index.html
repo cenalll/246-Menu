@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#2f6f4e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Menu Planner" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>Menu Planner</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icon.svg" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar" aria-label="Menu planner overview">
+        <div>
+          <p class="eyebrow">Kitchen board</p>
+          <h1>Menu Planner</h1>
+        </div>
+        <div class="stats" aria-label="Planner stats">
+          <div>
+            <span id="dishCount">0</span>
+            <small>dishes</small>
+          </div>
+          <div>
+            <span id="planCount">0</span>
+            <small>planned</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <aside class="dish-form-panel" aria-labelledby="addDishHeading">
+          <div class="panel-header">
+            <h2 id="addDishHeading">Add Dish</h2>
+            <button class="ghost-button" id="clearDishForm" type="button" title="Clear form" aria-label="Clear form">
+              <span aria-hidden="true">x</span>
+            </button>
+          </div>
+
+          <form id="dishForm" class="dish-form">
+            <label class="photo-picker">
+              <input id="dishPhoto" name="photo" type="file" accept="image/*" required />
+              <span class="photo-preview" id="photoPreview">
+                <span class="photo-mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img">
+                    <path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v10A1.5 1.5 0 0 1 19 18.5H5A1.5 1.5 0 0 1 3.5 17V7A1.5 1.5 0 0 1 5 5.5Zm1 10h12l-3.7-4.4-2.7 3.2-1.8-2.1L6 15.5Zm11-6.2a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6Z" />
+                  </svg>
+                </span>
+                <strong>Upload dish photo</strong>
+                <small>Required</small>
+              </span>
+            </label>
+
+            <label>
+              Dish name
+              <input id="dishName" name="name" type="text" placeholder="Tomato egg noodles" required />
+            </label>
+
+            <label>
+              Ingredients
+              <textarea id="dishIngredients" name="ingredients" placeholder="tomato&#10;egg&#10;noodles" required></textarea>
+            </label>
+
+            <div class="field-row">
+              <label>
+                Prep time
+                <input id="dishTime" name="time" type="text" placeholder="25 min" />
+              </label>
+              <label>
+                Type
+                <select id="dishType" name="type">
+                  <option>Anytime</option>
+                  <option>Breakfast</option>
+                  <option>Lunch</option>
+                  <option>Dinner</option>
+                  <option>Snack</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              Notes
+              <textarea id="dishNotes" name="notes" placeholder="Spicy, light, good for leftovers..."></textarea>
+            </label>
+
+            <button class="primary-button" type="submit">Save dish</button>
+          </form>
+        </aside>
+
+        <section class="main-column">
+          <nav class="tabs" aria-label="Views">
+            <button class="tab-button active" data-view="menu" type="button">Menu</button>
+            <button class="tab-button" data-view="planner" type="button">Meal Plan</button>
+            <button class="tab-button" data-view="shopping" type="button">Shopping List</button>
+            <button class="tab-button" data-view="cloud" type="button">Cloud</button>
+          </nav>
+
+          <section id="menuView" class="view active" aria-labelledby="menuHeading">
+            <div class="section-heading">
+              <div>
+                <h2 id="menuHeading">Your Menu</h2>
+                <p>Pick dishes here, then plan them into the next few days.</p>
+              </div>
+              <input id="menuSearch" type="search" placeholder="Search dishes or ingredients" aria-label="Search dishes or ingredients" />
+            </div>
+            <div id="dishGrid" class="dish-grid" aria-live="polite"></div>
+          </section>
+
+          <section id="plannerView" class="view" aria-labelledby="plannerHeading">
+            <div class="section-heading">
+              <div>
+                <h2 id="plannerHeading">Near Future Meal Plan</h2>
+                <p>Select a date, meal, and dish from your menu.</p>
+              </div>
+            </div>
+            <form id="planForm" class="plan-form">
+              <label>
+                Date
+                <input id="planDate" type="date" required />
+              </label>
+              <label>
+                Meal
+                <select id="planMeal">
+                  <option>Breakfast</option>
+                  <option>Lunch</option>
+                  <option>Dinner</option>
+                  <option>Snack</option>
+                </select>
+              </label>
+              <label>
+                Dish
+                <select id="planDish" required></select>
+              </label>
+              <button class="primary-button" type="submit">Add to plan</button>
+            </form>
+            <div id="planGrid" class="plan-grid" aria-live="polite"></div>
+          </section>
+
+          <section id="shoppingView" class="view" aria-labelledby="shoppingHeading">
+            <div class="section-heading">
+              <div>
+                <h2 id="shoppingHeading">Shopping List</h2>
+                <p>Ingredients from meals currently in your plan, adjusted for what you already have.</p>
+              </div>
+              <button id="copyShoppingList" class="secondary-button" type="button">Copy list</button>
+            </div>
+            <form id="shoppingForm" class="shopping-form">
+              <label>
+                Add item
+                <input id="shoppingItemName" type="text" placeholder="milk, rice, snacks..." required />
+              </label>
+              <button class="primary-button" type="submit">Add</button>
+            </form>
+            <div id="shoppingList" class="shopping-board" aria-live="polite"></div>
+          </section>
+
+          <section id="cloudView" class="view" aria-labelledby="cloudHeading">
+            <div class="section-heading">
+              <div>
+                <h2 id="cloudHeading">Cloud Sync</h2>
+                <p>Connect Supabase when you want this menu saved outside this browser.</p>
+              </div>
+              <span id="cloudStatus" class="status-pill">Local only</span>
+            </div>
+            <form id="cloudForm" class="cloud-form">
+              <label>
+                Supabase URL
+                <input id="supabaseUrl" type="url" placeholder="https://your-project.supabase.co" />
+              </label>
+              <label>
+                Anon public key
+                <input id="supabaseKey" type="password" placeholder="eyJ..." autocomplete="off" />
+              </label>
+              <label>
+                Sync ID
+                <input id="syncId" type="text" placeholder="my-menu" />
+              </label>
+              <div class="cloud-actions">
+                <button class="primary-button" type="submit">Save settings</button>
+                <button id="pushCloud" class="secondary-button" type="button">Push to cloud</button>
+                <button id="pullCloud" class="secondary-button" type="button">Pull from cloud</button>
+              </div>
+            </form>
+            <div class="cloud-note">
+              <strong>Supabase setup</strong>
+              <p>Run the SQL in <code>supabase-schema.sql</code> once in your Supabase SQL editor, then paste your project URL and anon key here.</p>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <template id="dishCardTemplate">
+      <article class="dish-card">
+        <img alt="" />
+        <div class="dish-card-body">
+          <div class="dish-card-title">
+            <h3></h3>
+            <span></span>
+          </div>
+          <p class="ingredients"></p>
+          <p class="notes"></p>
+          <div class="card-actions">
+            <button class="secondary-button plan-now" type="button">Plan</button>
+            <button class="danger-button delete-dish" type="button">Delete</button>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
