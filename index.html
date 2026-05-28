@@ -9,16 +9,19 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Menu Planner</title>
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="./icon.svg" />
+    <link rel="icon" href="./icon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="./icon.png" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="app-shell">
       <section class="topbar" aria-label="Menu planner overview">
-        <div>
-          <p class="eyebrow">Kitchen board</p>
-          <h1>Menu Planner</h1>
+        <div class="title-row">
+          <div>
+            <p class="eyebrow">Kitchen board</p>
+            <h1>Menu Planner</h1>
+          </div>
+          <button id="accountButton" class="secondary-button account-button" type="button">Sign in</button>
         </div>
         <div class="stats" aria-label="Planner stats">
           <div>
@@ -33,10 +36,10 @@
       </section>
 
       <section class="workspace">
-        <aside class="dish-form-panel" aria-labelledby="addDishHeading">
+        <aside id="dishFormPanel" class="dish-form-panel collapsed" aria-labelledby="addDishHeading">
           <div class="panel-header">
             <h2 id="addDishHeading">Add Dish</h2>
-            <button class="ghost-button" id="clearDishForm" type="button" title="Clear form" aria-label="Clear form">
+            <button class="ghost-button" id="closeDishForm" type="button" title="Close form" aria-label="Close form">
               <span aria-hidden="true">x</span>
             </button>
           </div>
@@ -62,7 +65,7 @@
 
             <label>
               Ingredients
-              <textarea id="dishIngredients" name="ingredients" placeholder="tomato&#10;egg&#10;noodles" required></textarea>
+              <textarea id="dishIngredients" name="ingredients" placeholder="tomato, egg, noodles&#10;番茄，鸡蛋，面条" required></textarea>
             </label>
 
             <div class="field-row">
@@ -96,7 +99,6 @@
             <button class="tab-button active" data-view="menu" type="button">Menu</button>
             <button class="tab-button" data-view="planner" type="button">Meal Plan</button>
             <button class="tab-button" data-view="shopping" type="button">Shopping List</button>
-            <button class="tab-button" data-view="cloud" type="button">Cloud</button>
           </nav>
 
           <section id="menuView" class="view active" aria-labelledby="menuHeading">
@@ -105,7 +107,10 @@
                 <h2 id="menuHeading">Your Menu</h2>
                 <p>Pick dishes here, then plan them into the next few days.</p>
               </div>
-              <input id="menuSearch" type="search" placeholder="Search dishes or ingredients" aria-label="Search dishes or ingredients" />
+              <div class="section-actions">
+                <input id="menuSearch" type="search" placeholder="Search dishes or ingredients" aria-label="Search dishes or ingredients" />
+                <button id="openDishForm" class="primary-button" type="button">Add dish</button>
+              </div>
             </div>
             <div id="dishGrid" class="dish-grid" aria-live="polite"></div>
           </section>
@@ -161,8 +166,8 @@
           <section id="cloudView" class="view" aria-labelledby="cloudHeading">
             <div class="section-heading">
               <div>
-                <h2 id="cloudHeading">Cloud Sync</h2>
-                <p>Connect Supabase when you want this menu saved outside this browser.</p>
+                <h2 id="cloudHeading">Account & Sync</h2>
+                <p>Sign in with the shared family account. After that, changes save automatically.</p>
               </div>
               <span id="cloudStatus" class="status-pill">Local only</span>
             </div>
@@ -172,17 +177,29 @@
                 <input id="supabaseUrl" type="url" placeholder="https://your-project.supabase.co" />
               </label>
               <label>
-                Anon public key
-                <input id="supabaseKey" type="password" placeholder="eyJ..." autocomplete="off" />
+                Publishable key
+                <input id="supabaseKey" type="password" placeholder="sb_publishable_..." autocomplete="off" />
               </label>
               <label>
                 Sync ID
                 <input id="syncId" type="text" placeholder="my-menu" />
               </label>
+              <label>
+                Family email
+                <input id="familyEmail" type="email" placeholder="family@email.com" autocomplete="email" />
+              </label>
+              <label>
+                Password
+                <input id="familyPassword" type="password" placeholder="Password" autocomplete="current-password" />
+              </label>
+              <p id="signedInText" class="signed-in-text"></p>
               <div class="cloud-actions">
                 <button class="primary-button" type="submit">Save settings</button>
-                <button id="pushCloud" class="secondary-button" type="button">Push to cloud</button>
-                <button id="pullCloud" class="secondary-button" type="button">Pull from cloud</button>
+                <button id="signInButton" class="secondary-button" type="button">Sign in</button>
+                <button id="signUpButton" class="secondary-button" type="button">Create login</button>
+                <button id="signOutButton" class="danger-button" type="button">Sign out</button>
+                <button id="pushCloud" class="secondary-button" type="button">Save now</button>
+                <button id="pullCloud" class="secondary-button" type="button">Load latest</button>
               </div>
             </form>
             <div class="cloud-note">

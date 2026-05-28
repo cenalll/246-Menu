@@ -53,6 +53,17 @@ button {
   margin-bottom: 18px;
 }
 
+.title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.account-button {
+  flex: 0 0 auto;
+  margin-top: 4px;
+}
+
 .eyebrow {
   margin: 0 0 4px;
   color: var(--tomato);
@@ -128,6 +139,10 @@ h3 {
   padding: 18px;
 }
 
+.dish-form-panel.collapsed {
+  display: none;
+}
+
 .panel-header,
 .section-heading,
 .dish-card-title,
@@ -141,6 +156,12 @@ h3 {
 .section-heading {
   padding: 18px 18px 10px;
   align-items: end;
+}
+
+.section-actions {
+  display: flex;
+  align-items: end;
+  gap: 10px;
 }
 
 .section-heading p {
@@ -450,7 +471,7 @@ select:focus {
 
 .shopping-board {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 14px;
   padding: 8px 18px 20px;
 }
@@ -479,14 +500,12 @@ select:focus {
 
 .shopping-section-body {
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  padding: 0;
 }
 
 .shopping-item,
 .empty-state {
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border-bottom: 1px solid var(--line);
   background: #fff;
   padding: 14px;
 }
@@ -496,12 +515,13 @@ select:focus {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
-  padding: 10px;
 }
 
-.shopping-item span {
+.shopping-item span,
+.shopping-source {
   color: var(--muted);
-  font-weight: 800;
+  font-weight: 650;
+  font-size: 0.9rem;
 }
 
 .shopping-item-actions {
@@ -524,6 +544,12 @@ select:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.signed-in-text {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 750;
 }
 
 .cloud-note {
@@ -597,6 +623,12 @@ select:focus {
 
   .topbar,
   .section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .title-row,
+  .section-actions {
     align-items: stretch;
     flex-direction: column;
   }

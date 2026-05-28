@@ -2,6 +2,7 @@ const STORAGE_KEY = "menu-planner-state-v1";
 const CLOUD_CONFIG_KEY = "menu-planner-cloud-config-v1";
 const CLOUD_TABLE = "menu_planner_sync";
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const AUTOSAVE_DELAY = 1800;
 const makeId = () => {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -56,8 +57,15 @@ const cloudConfig = loadCloudConfig();
 let currentPhoto = "";
 let activePlanDishId = "";
 let supabaseClient = null;
+let session = null;
+let hasPulledCloud = false;
+let isApplyingCloudState = false;
+let isLoaded = false;
+let autosaveTimer = null;
 
 const dishForm = document.querySelector("#dishForm");
+const dishFormPanel = document.querySelector("#dishFormPanel");
+const openDishForm = document.querySelector("#openDishForm");
 const dishPhoto = document.querySelector("#dishPhoto");
 const photoPreview = document.querySelector("#photoPreview");
 const dishGrid = document.querySelector("#dishGrid");
@@ -75,6 +83,13 @@ const cloudStatus = document.querySelector("#cloudStatus");
 const supabaseUrl = document.querySelector("#supabaseUrl");
 const supabaseKey = document.querySelector("#supabaseKey");
 const syncId = document.querySelector("#syncId");
+const accountButton = document.querySelector("#accountButton");
+const familyEmail = document.querySelector("#familyEmail");
+const familyPassword = document.querySelector("#familyPassword");
+const signedInText = document.querySelector("#signedInText");
+const signInButton = document.querySelector("#signInButton");
+const signUpButton = document.querySelector("#signUpButton");
+const signOutButton = document.querySelector("#signOutButton");
 const pushCloud = document.querySelector("#pushCloud");
 const pullCloud = document.querySelector("#pullCloud");
 
@@ -98,6 +113,7 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  scheduleAutoSync();
 }
 
 function loadCloudConfig() {
@@ -123,9 +139,15 @@ function saveCloudConfig() {
 }
 
 function createShoppingState(saved = {}) {
+  const ownedRows = Array.isArray(saved.ownedRows) ? saved.ownedRows : [];
+  const skippedRows = Array.isArray(saved.skippedRows) ? saved.skippedRows : [];
+  const boughtRows = Array.isArray(saved.boughtRows) ? saved.boughtRows : [];
   return {
     owned: Array.isArray(saved.owned) ? saved.owned : [],
     skipped: Array.isArray(saved.skipped) ? saved.skipped : [],
+    ownedRows,
+    skippedRows,
+    boughtRows,
     extras: Array.isArray(saved.extras) ? saved.extras : [],
   };
 }
@@ -136,7 +158,7 @@ function normalizeItem(value) {
 
 function splitIngredients(value) {
   return value
-    .split(/[\n,]+/)
+    .split(/[\n,，、;；]+/)
     .map((item) => item.trim())
     .filter(Boolean);
 }
@@ -280,16 +302,16 @@ function renderPlan() {
 }
 
 function renderShoppingList() {
-  const counts = new Map();
+  const rows = [];
   state.plan.forEach((item) => {
     const dish = state.dishes.find((candidate) => candidate.id === item.dishId);
     if (!dish) return;
 
-    dish.ingredients.forEach((ingredient) => {
-      const normalized = normalizeItem(ingredient);
-      counts.set(normalized, {
+    dish.ingredients.forEach((ingredient, index) => {
+      rows.push({
+        key: `${item.id}:${index}:${normalizeItem(ingredient)}`,
         label: ingredient,
-        count: (counts.get(normalized)?.count || 0) + 1,
+        source: dish.name,
       });
     });
   });
@@ -297,20 +319,22 @@ function renderShoppingList() {
   state.shopping.extras.forEach((extra) => {
     const normalized = normalizeItem(extra.label);
     if (!normalized) return;
-    counts.set(normalized, {
+    rows.push({
+      key: `extra:${extra.id || normalized}`,
       label: extra.label,
-      count: (counts.get(normalized)?.count || 0) + 1,
+      source: "Added item",
     });
   });
 
-  const owned = new Set(state.shopping.owned);
-  const skipped = new Set(state.shopping.skipped);
-  const allItems = [...counts.entries()]
-    .map(([key, item]) => ({ key, ...item }))
+  const owned = new Set([...(state.shopping.ownedRows || []), ...(state.shopping.owned || [])]);
+  const skipped = new Set([...(state.shopping.skippedRows || []), ...(state.shopping.skipped || [])]);
+  const bought = new Set(state.shopping.boughtRows || []);
+  const allItems = rows
     .sort((a, b) => a.label.localeCompare(b.label));
-  const neededItems = allItems.filter((item) => !owned.has(item.key) && !skipped.has(item.key));
-  const ownedItems = allItems.filter((item) => owned.has(item.key));
-  const skippedItems = allItems.filter((item) => skipped.has(item.key));
+  const neededItems = allItems.filter((item) => !owned.has(item.key) && !owned.has(normalizeItem(item.label)) && !skipped.has(item.key) && !skipped.has(normalizeItem(item.label)) && !bought.has(item.key));
+  const boughtItems = allItems.filter((item) => bought.has(item.key));
+  const ownedItems = allItems.filter((item) => owned.has(item.key) || owned.has(normalizeItem(item.label)));
+  const skippedItems = allItems.filter((item) => skipped.has(item.key) || skipped.has(normalizeItem(item.label)));
 
   shoppingList.innerHTML = "";
   if (!allItems.length) {
@@ -320,6 +344,7 @@ function renderShoppingList() {
 
   shoppingList.append(
     createShoppingSection("Need to buy", "need", neededItems),
+    createShoppingSection("Bought", "bought", boughtItems),
     createShoppingSection("Already have", "owned", ownedItems),
     createShoppingSection("Skipped", "skipped", skippedItems),
   );
@@ -357,21 +382,25 @@ function createShoppingItem(item, kind) {
   const text = document.createElement("div");
   const label = document.createElement("strong");
   label.textContent = item.label;
-  const count = document.createElement("span");
-  count.textContent = `x${item.count}`;
-  text.append(label, count);
+  const source = document.createElement("span");
+  source.className = "shopping-source";
+  source.textContent = item.source;
+  text.append(label, source);
 
   const actions = document.createElement("div");
   actions.className = "shopping-item-actions";
   if (kind === "need") {
     actions.append(
+      createShoppingAction("Bought", "bought", item.key),
       createShoppingAction("Have", "own", item.key),
-      createShoppingAction("Remove", "skip", item.key, "danger-button"),
+      createShoppingAction("Skip", "skip", item.key, "danger-button"),
     );
+  } else if (kind === "bought") {
+    actions.append(createShoppingAction("Need", "need", item.key));
   } else if (kind === "owned") {
     actions.append(
       createShoppingAction("Need", "need", item.key),
-      createShoppingAction("Remove", "skip", item.key, "danger-button"),
+      createShoppingAction("Skip", "skip", item.key, "danger-button"),
     );
   } else {
     actions.append(createShoppingAction("Add back", "need", item.key));
@@ -411,6 +440,11 @@ function renderCloudSettings() {
   supabaseUrl.value = cloudConfig.url;
   supabaseKey.value = cloudConfig.key;
   syncId.value = cloudConfig.syncId;
+  accountButton.textContent = session ? "Sync" : "Sign in";
+  signedInText.textContent = session?.user?.email ? `Signed in as ${session.user.email}` : "";
+  signOutButton.hidden = !session;
+  signInButton.hidden = Boolean(session);
+  signUpButton.hidden = Boolean(session);
   updateCloudStatus();
 }
 
@@ -421,9 +455,11 @@ function updateCloudStatus(message = "") {
     return;
   }
 
-  if (cloudConfig.url && cloudConfig.key && cloudConfig.syncId) {
-    cloudStatus.textContent = "Ready";
+  if (session) {
+    cloudStatus.textContent = "Signed in";
     cloudStatus.classList.add("connected");
+  } else if (cloudConfig.url && cloudConfig.key && cloudConfig.syncId) {
+    cloudStatus.textContent = "Ready to sign in";
   } else {
     cloudStatus.textContent = "Local only";
   }
@@ -443,14 +479,34 @@ function getSupabaseClient() {
     throw new Error("Supabase library is not loaded.");
   }
   if (!supabaseClient) {
-    supabaseClient = window.supabase.createClient(cloudConfig.url, cloudConfig.key);
+    supabaseClient = window.supabase.createClient(cloudConfig.url, cloudConfig.key, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+    });
   }
   return supabaseClient;
 }
 
-async function pushStateToCloud() {
+function scheduleAutoSync() {
+  if (!isLoaded || !session || !hasPulledCloud || isApplyingCloudState) return;
+  window.clearTimeout(autosaveTimer);
+  setCloudStatus("Autosave pending...");
+  autosaveTimer = window.setTimeout(async () => {
+    try {
+      await pushStateToCloud({ silent: true });
+    } catch (error) {
+      setCloudStatus(error.message || "Autosave failed", "error");
+    }
+  }, AUTOSAVE_DELAY);
+}
+
+async function pushStateToCloud(options = {}) {
   const client = getSupabaseClient();
-  setCloudStatus("Pushing...");
+  if (!session) throw new Error("Sign in first.");
+  setCloudStatus(options.silent ? "Autosaving..." : "Saving...");
   const { error } = await client.from(CLOUD_TABLE).upsert({
     sync_id: cloudConfig.syncId,
     state: getCloudPayload(),
@@ -458,12 +514,13 @@ async function pushStateToCloud() {
   });
 
   if (error) throw error;
-  setCloudStatus("Cloud saved", "success");
+  setCloudStatus(options.silent ? "Autosaved" : "Family menu saved", "success");
 }
 
-async function pullStateFromCloud() {
+async function pullStateFromCloud(options = {}) {
   const client = getSupabaseClient();
-  setCloudStatus("Pulling...");
+  if (!session) throw new Error("Sign in first.");
+  setCloudStatus(options.silent ? "Syncing..." : "Loading...");
   const { data, error } = await client
     .from(CLOUD_TABLE)
     .select("state")
@@ -472,13 +529,79 @@ async function pullStateFromCloud() {
 
   if (error) throw error;
   if (!data?.state) {
-    setCloudStatus("No cloud data yet", "error");
+    hasPulledCloud = true;
+    setCloudStatus("No saved family menu yet", "error");
     return;
   }
 
+  isApplyingCloudState = true;
   Object.assign(state, normalizeAppState(data.state));
   render();
-  setCloudStatus("Cloud loaded", "success");
+  isApplyingCloudState = false;
+  hasPulledCloud = true;
+  setCloudStatus(options.silent ? "Synced" : "Family menu loaded", "success");
+}
+
+async function initializeAuth() {
+  if (!cloudConfig.url || !cloudConfig.key) {
+    isLoaded = true;
+    return;
+  }
+
+  try {
+    const client = getSupabaseClient();
+    const { data } = await client.auth.getSession();
+    session = data.session || null;
+    client.auth.onAuthStateChange((_event, nextSession) => {
+      session = nextSession;
+      hasPulledCloud = false;
+      renderCloudSettings();
+      if (session) {
+        pullStateFromCloud({ silent: true }).catch((error) => setCloudStatus(error.message || "Sync failed", "error"));
+      }
+    });
+    if (session) {
+      await pullStateFromCloud({ silent: true });
+    }
+  } catch (error) {
+    setCloudStatus(error.message || "Sync setup failed", "error");
+  } finally {
+    isLoaded = true;
+    renderCloudSettings();
+  }
+}
+
+async function signIn() {
+  const client = getSupabaseClient();
+  const { data, error } = await client.auth.signInWithPassword({
+    email: familyEmail.value.trim(),
+    password: familyPassword.value,
+  });
+  if (error) throw error;
+  session = data.session;
+  setCloudStatus("Signed in", "success");
+  await pullStateFromCloud({ silent: true });
+}
+
+async function signUp() {
+  const client = getSupabaseClient();
+  const { data, error } = await client.auth.signUp({
+    email: familyEmail.value.trim(),
+    password: familyPassword.value,
+  });
+  if (error) throw error;
+  session = data.session;
+  setCloudStatus(session ? "Signed in" : "Check email", "success");
+  if (session) await pullStateFromCloud({ silent: true });
+}
+
+async function signOut() {
+  const client = getSupabaseClient();
+  await client.auth.signOut();
+  session = null;
+  hasPulledCloud = false;
+  setCloudStatus("Signed out");
+  renderCloudSettings();
 }
 
 dishPhoto.addEventListener("change", () => {
@@ -516,15 +639,22 @@ dishForm.addEventListener("submit", (event) => {
   currentPhoto = "";
   photoPreview.classList.remove("has-image");
   photoPreview.style.backgroundImage = "";
+  dishFormPanel.classList.add("collapsed");
   switchView("menu");
   render();
 });
 
-document.querySelector("#clearDishForm").addEventListener("click", () => {
+openDishForm.addEventListener("click", () => {
+  dishFormPanel.classList.remove("collapsed");
+  dishFormPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+document.querySelector("#closeDishForm").addEventListener("click", () => {
   dishForm.reset();
   currentPhoto = "";
   photoPreview.classList.remove("has-image");
   photoPreview.style.backgroundImage = "";
+  dishFormPanel.classList.add("collapsed");
 });
 
 dishGrid.addEventListener("click", (event) => {
@@ -563,6 +693,8 @@ document.querySelectorAll(".tab-button").forEach((button) => {
   button.addEventListener("click", () => switchView(button.dataset.view));
 });
 
+accountButton.addEventListener("click", () => switchView("cloud"));
+
 menuSearch.addEventListener("input", renderDishes);
 
 shoppingForm.addEventListener("submit", (event) => {
@@ -583,14 +715,18 @@ shoppingList.addEventListener("click", (event) => {
   if (!button) return;
 
   const key = button.dataset.key;
-  state.shopping.owned = state.shopping.owned.filter((item) => item !== key);
-  state.shopping.skipped = state.shopping.skipped.filter((item) => item !== key);
+  state.shopping.ownedRows = (state.shopping.ownedRows || []).filter((item) => item !== key);
+  state.shopping.skippedRows = (state.shopping.skippedRows || []).filter((item) => item !== key);
+  state.shopping.boughtRows = (state.shopping.boughtRows || []).filter((item) => item !== key);
 
   if (button.dataset.action === "own") {
-    state.shopping.owned.push(key);
+    state.shopping.ownedRows.push(key);
   }
   if (button.dataset.action === "skip") {
-    state.shopping.skipped.push(key);
+    state.shopping.skippedRows.push(key);
+  }
+  if (button.dataset.action === "bought") {
+    state.shopping.boughtRows.push(key);
   }
 
   render();
@@ -605,6 +741,7 @@ cloudForm.addEventListener("submit", (event) => {
   saveCloudConfig();
   updateCloudStatus("Settings saved");
   window.setTimeout(() => updateCloudStatus(), 1200);
+  initializeAuth();
 });
 
 pushCloud.addEventListener("click", async () => {
@@ -623,10 +760,34 @@ pullCloud.addEventListener("click", async () => {
   }
 });
 
+signInButton.addEventListener("click", async () => {
+  try {
+    await signIn();
+  } catch (error) {
+    setCloudStatus(error.message || "Sign in failed", "error");
+  }
+});
+
+signUpButton.addEventListener("click", async () => {
+  try {
+    await signUp();
+  } catch (error) {
+    setCloudStatus(error.message || "Create login failed", "error");
+  }
+});
+
+signOutButton.addEventListener("click", async () => {
+  try {
+    await signOut();
+  } catch (error) {
+    setCloudStatus(error.message || "Sign out failed", "error");
+  }
+});
+
 document.querySelector("#copyShoppingList").addEventListener("click", async () => {
   const button = document.querySelector("#copyShoppingList");
   const text = [...shoppingList.querySelectorAll('.shopping-section[data-kind="need"] .shopping-item')]
-    .map((item) => `${item.dataset.label} x${item.dataset.count}`)
+    .map((item) => item.dataset.label)
     .join("\n");
 
   if (!text) return;
@@ -652,6 +813,7 @@ document.querySelector("#copyShoppingList").addEventListener("click", async () =
 
 setDefaultPlanDate();
 render();
+initializeAuth();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
