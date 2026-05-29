@@ -5,7 +5,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const AUTOSAVE_DELAY = 1800;
 const DEFAULT_CLOUD_CONFIG = {
   url: "https://nohriuvjxxdovqfpqhpt.supabase.co",
-  key: "",
+  key: "sb_publishable_cIKe5OwXpmTviWsIJB2Ggg_2Q64s0Cv",
   syncId: "my-menu",
 };
 const menuCategories = [
