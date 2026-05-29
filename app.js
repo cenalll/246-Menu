@@ -3,6 +3,12 @@ const CLOUD_CONFIG_KEY = "menu-planner-cloud-config-v1";
 const CLOUD_TABLE = "menu_planner_sync";
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const AUTOSAVE_DELAY = 1800;
+const menuCategories = [
+  { key: "Breakfast", label: "Breakfast" },
+  { key: "Lunch", label: "Lunch" },
+  { key: "Dinner", label: "Dinner" },
+  { key: "Snack", label: "Snacks" },
+];
 const makeId = () => {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -64,6 +70,7 @@ let isApplyingCloudState = false;
 let isLoaded = false;
 let autosaveTimer = null;
 const expandedDishIds = new Set();
+const expandedCategoryKeys = new Set();
 
 const dishForm = document.querySelector("#dishForm");
 const dishFormPanel = document.querySelector("#dishFormPanel");
@@ -174,6 +181,14 @@ function formatDate(dateString) {
   }).format(date);
 }
 
+function getDishCategory(dish) {
+  const type = String(dish.type || "").toLowerCase();
+  if (type.includes("breakfast")) return "Breakfast";
+  if (type.includes("dinner")) return "Dinner";
+  if (type.includes("snack")) return "Snack";
+  return "Lunch";
+}
+
 function setDefaultPlanDate() {
   const tomorrow = new Date(Date.now() + MS_PER_DAY);
   planDate.value = tomorrow.toISOString().slice(0, 10);
@@ -220,7 +235,34 @@ function renderDishes() {
   }
 
   const template = document.querySelector("#dishCardTemplate");
-  dishes.forEach((dish) => {
+  menuCategories.forEach((category) => {
+    const categoryDishes = dishes
+      .filter((dish) => getDishCategory(dish) === category.key)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const isOpen = expandedCategoryKeys.has(category.key) || Boolean(query);
+
+    const section = document.createElement("section");
+    section.className = "dish-category";
+    section.classList.toggle("expanded", isOpen);
+    section.dataset.category = category.key;
+
+    const button = document.createElement("button");
+    button.className = "dish-category-button";
+    button.type = "button";
+    button.dataset.categoryToggle = category.key;
+    button.innerHTML = `
+      <span>${category.label}</span>
+      <strong>${categoryDishes.length}</strong>
+    `;
+
+    const list = document.createElement("div");
+    list.className = "dish-category-list";
+
+    if (!categoryDishes.length) {
+      list.append(createEmptyState("No dishes here yet."));
+    }
+
+    categoryDishes.forEach((dish) => {
     const card = template.content.firstElementChild.cloneNode(true);
     card.dataset.id = dish.id;
     card.classList.toggle("expanded", expandedDishIds.has(dish.id));
@@ -233,7 +275,11 @@ function renderDishes() {
     card.querySelector(".dish-card-title span").textContent = dish.time || dish.type || "Dish";
     card.querySelector(".ingredients").textContent = dish.ingredients.join(", ");
     card.querySelector(".notes").textContent = dish.notes || "No notes yet.";
-    dishGrid.append(card);
+      list.append(card);
+    });
+
+    section.append(button, list);
+    dishGrid.append(section);
   });
 }
 
@@ -693,6 +739,18 @@ document.querySelector("#closeDishForm").addEventListener("click", () => {
 });
 
 dishGrid.addEventListener("click", (event) => {
+  const categoryButton = event.target.closest("[data-category-toggle]");
+  if (categoryButton) {
+    const key = categoryButton.dataset.categoryToggle;
+    if (expandedCategoryKeys.has(key)) {
+      expandedCategoryKeys.delete(key);
+    } else {
+      expandedCategoryKeys.add(key);
+    }
+    renderDishes();
+    return;
+  }
+
   const card = event.target.closest(".dish-card");
   if (!card) return;
 

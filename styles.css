@@ -350,9 +350,66 @@ select:focus {
 
 .dish-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
   padding: 8px 18px 20px;
+}
+
+.dish-category {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.dish-category.expanded {
+  grid-column: 1 / -1;
+}
+
+.dish-category-button {
+  width: 100%;
+  min-height: 96px;
+  border: 0;
+  background: var(--mint);
+  color: var(--ink);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px;
+  padding: 18px;
+  text-align: left;
+}
+
+.dish-category:nth-child(2) .dish-category-button {
+  background: var(--sky);
+}
+
+.dish-category:nth-child(3) .dish-category-button {
+  background: #f6ead0;
+}
+
+.dish-category:nth-child(4) .dish-category-button {
+  background: #f7e8e1;
+}
+
+.dish-category-button span {
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.dish-category-button strong {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.dish-category-list {
+  display: none;
+  padding: 8px;
+  gap: 8px;
+}
+
+.dish-category.expanded .dish-category-list {
+  display: grid;
 }
 
 .dish-card {
