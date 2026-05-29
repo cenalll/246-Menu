@@ -172,18 +172,6 @@
             </div>
             <form id="cloudForm" class="cloud-form">
               <label>
-                Supabase URL
-                <input id="supabaseUrl" type="url" placeholder="https://your-project.supabase.co" />
-              </label>
-              <label>
-                Publishable key
-                <input id="supabaseKey" type="password" placeholder="sb_publishable_..." autocomplete="off" />
-              </label>
-              <label>
-                Sync ID
-                <input id="syncId" type="text" placeholder="my-menu" />
-              </label>
-              <label>
                 Family email
                 <input id="familyEmail" type="email" placeholder="family@email.com" autocomplete="email" />
               </label>
@@ -193,17 +181,34 @@
               </label>
               <p id="signedInText" class="signed-in-text"></p>
               <div class="cloud-actions">
-                <button class="primary-button" type="submit">Save settings</button>
-                <button id="signInButton" class="secondary-button" type="button">Sign in</button>
-                <button id="signUpButton" class="secondary-button" type="button">Create login</button>
+                <button id="signInButton" class="primary-button" type="button">Sign in</button>
                 <button id="signOutButton" class="danger-button" type="button">Sign out</button>
                 <button id="pushCloud" class="secondary-button" type="button">Save now</button>
                 <button id="pullCloud" class="secondary-button" type="button">Load latest</button>
               </div>
+              <details class="advanced-setup">
+                <summary>Advanced setup</summary>
+                <label>
+                  Supabase URL
+                  <input id="supabaseUrl" type="url" placeholder="https://your-project.supabase.co" />
+                </label>
+                <label>
+                  Publishable key
+                  <input id="supabaseKey" type="password" placeholder="sb_publishable_..." autocomplete="off" />
+                </label>
+                <label>
+                  Sync ID
+                  <input id="syncId" type="text" placeholder="my-menu" />
+                </label>
+                <div class="cloud-actions">
+                  <button class="secondary-button" type="submit">Save setup</button>
+                  <button id="signUpButton" class="secondary-button" type="button">Create login</button>
+                </div>
+              </details>
             </form>
             <div class="cloud-note">
-              <strong>Supabase setup</strong>
-              <p>Run the SQL in <code>supabase-schema.sql</code> once in your Supabase SQL editor, then paste your project URL and anon key here.</p>
+              <strong>For family members</strong>
+              <p>Use the shared family email and password. The advanced setup is only for the app owner.</p>
             </div>
           </section>
         </section>

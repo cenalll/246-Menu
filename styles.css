@@ -664,6 +664,26 @@ select:focus {
   font-weight: 750;
 }
 
+.advanced-setup {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.advanced-setup summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.advanced-setup label:first-of-type {
+  margin-top: 12px;
+}
+
+.advanced-setup label {
+  margin-bottom: 12px;
+}
+
 .cloud-note {
   margin: 0 18px 20px;
   border: 1px solid var(--line);

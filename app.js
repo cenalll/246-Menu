@@ -3,6 +3,11 @@ const CLOUD_CONFIG_KEY = "menu-planner-cloud-config-v1";
 const CLOUD_TABLE = "menu_planner_sync";
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const AUTOSAVE_DELAY = 1800;
+const DEFAULT_CLOUD_CONFIG = {
+  url: "https://nohriuvjxxdovqfpqhpt.supabase.co",
+  key: "",
+  syncId: "my-menu",
+};
 const menuCategories = [
   { key: "Breakfast", label: "Breakfast" },
   { key: "Lunch", label: "Lunch" },
@@ -128,18 +133,18 @@ function saveState() {
 function loadCloudConfig() {
   const saved = localStorage.getItem(CLOUD_CONFIG_KEY);
   if (!saved) {
-    return { url: "", key: "", syncId: "my-menu" };
+    return { ...DEFAULT_CLOUD_CONFIG };
   }
 
   try {
     const parsed = JSON.parse(saved);
     return {
-      url: parsed.url || "",
-      key: parsed.key || "",
-      syncId: parsed.syncId || "my-menu",
+      url: parsed.url || DEFAULT_CLOUD_CONFIG.url,
+      key: parsed.key || DEFAULT_CLOUD_CONFIG.key,
+      syncId: parsed.syncId || DEFAULT_CLOUD_CONFIG.syncId,
     };
   } catch {
-    return { url: "", key: "", syncId: "my-menu" };
+    return { ...DEFAULT_CLOUD_CONFIG };
   }
 }
 
@@ -512,6 +517,8 @@ function updateCloudStatus(message = "") {
     cloudStatus.classList.add("connected");
   } else if (cloudConfig.url && cloudConfig.key && cloudConfig.syncId) {
     cloudStatus.textContent = "Ready to sign in";
+  } else if (cloudConfig.url && cloudConfig.syncId) {
+    cloudStatus.textContent = "Setup needed";
   } else {
     cloudStatus.textContent = "Local only";
   }
