@@ -213,8 +213,13 @@
 
     <template id="dishCardTemplate">
       <article class="dish-card">
-        <img alt="" />
+        <button class="dish-card-summary" type="button">
+          <span class="dish-card-name"></span>
+          <span class="dish-card-meta"></span>
+          <span class="dish-card-toggle" aria-hidden="true">+</span>
+        </button>
         <div class="dish-card-body">
+          <img alt="" />
           <div class="dish-card-title">
             <h3></h3>
             <span></span>
@@ -223,6 +228,7 @@
           <p class="notes"></p>
           <div class="card-actions">
             <button class="secondary-button plan-now" type="button">Plan</button>
+            <button class="secondary-button edit-dish" type="button">Edit</button>
             <button class="danger-button delete-dish" type="button">Delete</button>
           </div>
         </div>

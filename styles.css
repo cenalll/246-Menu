@@ -343,8 +343,8 @@ select:focus {
 
 .dish-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
-  gap: 14px;
+  grid-template-columns: 1fr;
+  gap: 8px;
   padding: 8px 18px 20px;
 }
 
@@ -353,6 +353,44 @@ select:focus {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
+}
+
+.dish-card-summary {
+  width: 100%;
+  min-height: 58px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.dish-card-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 900;
+}
+
+.dish-card-meta {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.dish-card-toggle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--mint);
+  color: var(--leaf-dark);
+  font-weight: 900;
 }
 
 .dish-card img {
@@ -364,9 +402,19 @@ select:focus {
 }
 
 .dish-card-body {
-  display: grid;
+  display: none;
   gap: 10px;
   padding: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.dish-card.expanded .dish-card-body {
+  display: grid;
+}
+
+.dish-card.expanded .dish-card-toggle {
+  background: var(--ink);
+  color: #fff;
 }
 
 .dish-card-title span {

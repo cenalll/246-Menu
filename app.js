@@ -56,12 +56,14 @@ const state = loadState();
 const cloudConfig = loadCloudConfig();
 let currentPhoto = "";
 let activePlanDishId = "";
+let editingDishId = "";
 let supabaseClient = null;
 let session = null;
 let hasPulledCloud = false;
 let isApplyingCloudState = false;
 let isLoaded = false;
 let autosaveTimer = null;
+const expandedDishIds = new Set();
 
 const dishForm = document.querySelector("#dishForm");
 const dishFormPanel = document.querySelector("#dishFormPanel");
@@ -221,6 +223,10 @@ function renderDishes() {
   dishes.forEach((dish) => {
     const card = template.content.firstElementChild.cloneNode(true);
     card.dataset.id = dish.id;
+    card.classList.toggle("expanded", expandedDishIds.has(dish.id));
+    card.querySelector(".dish-card-name").textContent = dish.name;
+    card.querySelector(".dish-card-meta").textContent = dish.time || dish.type || "Dish";
+    card.querySelector(".dish-card-toggle").textContent = expandedDishIds.has(dish.id) ? "-" : "+";
     card.querySelector("img").src = dish.photo;
     card.querySelector("img").alt = dish.name;
     card.querySelector("h3").textContent = dish.name;
@@ -604,6 +610,32 @@ async function signOut() {
   renderCloudSettings();
 }
 
+function resetDishForm() {
+  dishForm.reset();
+  editingDishId = "";
+  currentPhoto = "";
+  dishPhoto.required = true;
+  photoPreview.classList.remove("has-image");
+  photoPreview.style.backgroundImage = "";
+  dishForm.querySelector('button[type="submit"]').textContent = "Save dish";
+}
+
+function openDishEditor(dish) {
+  editingDishId = dish.id;
+  currentPhoto = dish.photo;
+  document.querySelector("#dishName").value = dish.name;
+  document.querySelector("#dishIngredients").value = dish.ingredients.join(", ");
+  document.querySelector("#dishTime").value = dish.time || "";
+  document.querySelector("#dishType").value = dish.type || "Anytime";
+  document.querySelector("#dishNotes").value = dish.notes || "";
+  dishPhoto.required = false;
+  photoPreview.classList.add("has-image");
+  photoPreview.style.backgroundImage = `url("${currentPhoto}")`;
+  dishForm.querySelector('button[type="submit"]').textContent = "Update dish";
+  dishFormPanel.classList.remove("collapsed");
+  dishFormPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 dishPhoto.addEventListener("change", () => {
   const file = dishPhoto.files[0];
   if (!file) return;
@@ -625,35 +657,38 @@ dishForm.addEventListener("submit", (event) => {
     return;
   }
 
-  state.dishes.unshift({
-    id: makeId(),
+  const nextDish = {
+    id: editingDishId || makeId(),
     name: document.querySelector("#dishName").value.trim(),
     ingredients: splitIngredients(document.querySelector("#dishIngredients").value),
     time: document.querySelector("#dishTime").value.trim(),
     type: document.querySelector("#dishType").value,
     notes: document.querySelector("#dishNotes").value.trim(),
     photo: currentPhoto,
-  });
+  };
 
-  dishForm.reset();
-  currentPhoto = "";
-  photoPreview.classList.remove("has-image");
-  photoPreview.style.backgroundImage = "";
+  if (editingDishId) {
+    state.dishes = state.dishes.map((dish) => (dish.id === editingDishId ? nextDish : dish));
+    expandedDishIds.add(editingDishId);
+  } else {
+    state.dishes.unshift(nextDish);
+    expandedDishIds.add(nextDish.id);
+  }
+
+  resetDishForm();
   dishFormPanel.classList.add("collapsed");
   switchView("menu");
   render();
 });
 
 openDishForm.addEventListener("click", () => {
+  resetDishForm();
   dishFormPanel.classList.remove("collapsed");
   dishFormPanel.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 document.querySelector("#closeDishForm").addEventListener("click", () => {
-  dishForm.reset();
-  currentPhoto = "";
-  photoPreview.classList.remove("has-image");
-  photoPreview.style.backgroundImage = "";
+  resetDishForm();
   dishFormPanel.classList.add("collapsed");
 });
 
@@ -664,7 +699,14 @@ dishGrid.addEventListener("click", (event) => {
   if (event.target.closest(".delete-dish")) {
     state.dishes = state.dishes.filter((dish) => dish.id !== card.dataset.id);
     state.plan = state.plan.filter((item) => item.dishId !== card.dataset.id);
+    expandedDishIds.delete(card.dataset.id);
     render();
+    return;
+  }
+
+  if (event.target.closest(".edit-dish")) {
+    const dish = state.dishes.find((candidate) => candidate.id === card.dataset.id);
+    if (dish) openDishEditor(dish);
     return;
   }
 
@@ -672,7 +714,15 @@ dishGrid.addEventListener("click", (event) => {
     activePlanDishId = card.dataset.id;
     switchView("planner");
     renderDishSelect();
+    return;
   }
+
+  if (expandedDishIds.has(card.dataset.id)) {
+    expandedDishIds.delete(card.dataset.id);
+  } else {
+    expandedDishIds.add(card.dataset.id);
+  }
+  renderDishes();
 });
 
 planForm.addEventListener("submit", (event) => {
