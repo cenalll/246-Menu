@@ -53,15 +53,22 @@ button {
   margin-bottom: 18px;
 }
 
-.title-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
+.topbar-side {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
 }
 
-.account-button {
-  flex: 0 0 auto;
-  margin-top: 4px;
+.account-link {
+  min-height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 2px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .eyebrow {
@@ -675,10 +682,18 @@ select:focus {
     flex-direction: column;
   }
 
-  .title-row,
+  .topbar-side,
   .section-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .topbar-side {
+    justify-items: stretch;
+  }
+
+  .account-link {
+    justify-self: end;
   }
 
   .stats {
