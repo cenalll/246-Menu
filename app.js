@@ -2,7 +2,7 @@ const STORAGE_KEY = "menu-planner-state-v1";
 const CLOUD_CONFIG_KEY = "menu-planner-cloud-config-v1";
 const CLOUD_TABLE = "menu_planner_sync";
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const AUTOSAVE_DELAY = 1800;
+const AUTOSAVE_DELAY = 700;
 const DEFAULT_CLOUD_CONFIG = {
   url: "https://nohriuvjxxdovqfpqhpt.supabase.co",
   key: "sb_publishable_cIKe5OwXpmTviWsIJB2Ggg_2Q64s0Cv",
@@ -74,6 +74,8 @@ let hasPulledCloud = false;
 let isApplyingCloudState = false;
 let isLoaded = false;
 let autosaveTimer = null;
+let pendingCloudSave = false;
+let autosaveInFlight = false;
 const expandedDishIds = new Set();
 const expandedCategoryKeys = new Set();
 
@@ -127,7 +129,7 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  scheduleAutoSync();
+  if (!isApplyingCloudState) scheduleAutoSync();
 }
 
 function loadCloudConfig() {
@@ -549,17 +551,39 @@ function getSupabaseClient() {
   return supabaseClient;
 }
 
+function canAutoSync() {
+  return isLoaded && session && hasPulledCloud && !isApplyingCloudState;
+}
+
 function scheduleAutoSync() {
-  if (!isLoaded || !session || !hasPulledCloud || isApplyingCloudState) return;
+  pendingCloudSave = true;
+  if (!canAutoSync()) return;
+
   window.clearTimeout(autosaveTimer);
   setCloudStatus("Autosave pending...");
-  autosaveTimer = window.setTimeout(async () => {
-    try {
-      await pushStateToCloud({ silent: true });
-    } catch (error) {
-      setCloudStatus(error.message || "Autosave failed", "error");
-    }
+  autosaveTimer = window.setTimeout(() => {
+    flushAutoSync();
   }, AUTOSAVE_DELAY);
+}
+
+async function flushAutoSync(options = {}) {
+  if (!pendingCloudSave || !canAutoSync() || autosaveInFlight) return;
+
+  autosaveInFlight = true;
+  try {
+    await pushStateToCloud({ silent: true, keepPending: true });
+    pendingCloudSave = false;
+  } catch (error) {
+    setCloudStatus(error.message || "Autosave failed", "error");
+    if (!options.once) {
+      window.clearTimeout(autosaveTimer);
+      autosaveTimer = window.setTimeout(() => {
+        flushAutoSync();
+      }, AUTOSAVE_DELAY * 4);
+    }
+  } finally {
+    autosaveInFlight = false;
+  }
 }
 
 async function pushStateToCloud(options = {}) {
@@ -573,6 +597,7 @@ async function pushStateToCloud(options = {}) {
   });
 
   if (error) throw error;
+  if (!options.keepPending) pendingCloudSave = false;
   setCloudStatus(options.silent ? "Autosaved" : "Family menu saved", "success");
 }
 
@@ -590,6 +615,7 @@ async function pullStateFromCloud(options = {}) {
   if (!data?.state) {
     hasPulledCloud = true;
     setCloudStatus("No saved family menu yet", "error");
+    flushAutoSync({ once: true });
     return;
   }
 
@@ -599,6 +625,7 @@ async function pullStateFromCloud(options = {}) {
   isApplyingCloudState = false;
   hasPulledCloud = true;
   setCloudStatus(options.silent ? "Synced" : "Family menu loaded", "success");
+  flushAutoSync({ once: true });
 }
 
 async function initializeAuth() {
@@ -627,6 +654,7 @@ async function initializeAuth() {
   } finally {
     isLoaded = true;
     renderCloudSettings();
+    flushAutoSync({ once: true });
   }
 }
 
@@ -640,6 +668,7 @@ async function signIn() {
   session = data.session;
   setCloudStatus("Signed in", "success");
   await pullStateFromCloud({ silent: true });
+  flushAutoSync({ once: true });
 }
 
 async function signUp() {
@@ -651,7 +680,10 @@ async function signUp() {
   if (error) throw error;
   session = data.session;
   setCloudStatus(session ? "Signed in" : "Check email", "success");
-  if (session) await pullStateFromCloud({ silent: true });
+  if (session) {
+    await pullStateFromCloud({ silent: true });
+    flushAutoSync({ once: true });
+  }
 }
 
 async function signOut() {
@@ -924,6 +956,16 @@ document.querySelector("#copyShoppingList").addEventListener("click", async () =
   window.setTimeout(() => {
     button.textContent = "Copy list";
   }, 1200);
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    flushAutoSync({ once: true });
+  }
+});
+
+window.addEventListener("pagehide", () => {
+  flushAutoSync({ once: true });
 });
 
 setDefaultPlanDate();
